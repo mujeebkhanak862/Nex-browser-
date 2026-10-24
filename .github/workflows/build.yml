@@ -6,17 +6,17 @@ on:
   push:
     branches:
       - main
+      - master
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -28,16 +28,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Grant Gradle permission
-        run: chmod +x gradlew
+      - name: Check project files
+        run: |
+          ls -la
+          ls -la DevilBrowser
+          test -f DevilBrowser/gradlew
+          test -f DevilBrowser/settings.gradle
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        working-directory: DevilBrowser
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nex-browser-debug-apk
-          path: '**/build/outputs/apk/debug/*.apk'
+          path: DevilBrowser/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
