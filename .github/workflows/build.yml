@@ -25,26 +25,37 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Check project files
+      - name: Extract project ZIP
         run: |
-          ls -la
-          ls -la DevilBrowser
-          test -f DevilBrowser/gradlew
-          test -f DevilBrowser/settings.gradle
+          unzip -o Nex-Browser-GitHub-APK-Ready.zip -d extracted
+          echo "=== Extracted files ==="
+          find extracted -maxdepth 4 -type f | head -200
+
+      - name: Locate Gradle wrapper
+        id: locate
+        run: |
+          WRAPPER=$(find extracted -type f -name gradlew -print -quit)
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: gradlew ZIP mein nahi mila."
+            echo "ZIP contents:"
+            unzip -l Nex-Browser-GitHub-APK-Ready.zip | head -100
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$WRAPPER")
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          chmod +x "$WRAPPER"
+          echo "Gradle project: $PROJECT_DIR"
 
       - name: Build Debug APK
-        working-directory: DevilBrowser
+        working-directory: .
         run: |
-          chmod +x ./gradlew
+          cd "${{ steps.locate.outputs.project_dir }}"
           ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nex-browser-debug-apk
-          path: DevilBrowser/app/build/outputs/apk/debug/*.apk
+          path: extracted/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
