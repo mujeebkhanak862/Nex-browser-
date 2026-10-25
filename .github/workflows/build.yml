@@ -16,46 +16,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Download repository
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract project ZIP
+      - name: Find and extract ZIP
         run: |
-          unzip -o Nex-Browser-GitHub-APK-Ready.zip -d extracted
-          echo "=== Extracted files ==="
-          find extracted -maxdepth 4 -type f | head -200
+          ZIP_FILE=$(find . -maxdepth 1 -iname '*.zip' -print -quit)
 
-      - name: Locate Gradle wrapper
-        id: locate
-        run: |
-          WRAPPER=$(find extracted -type f -name gradlew -print -quit)
-          if [ -z "$WRAPPER" ]; then
-            echo "ERROR: gradlew ZIP mein nahi mila."
-            echo "ZIP contents:"
-            unzip -l Nex-Browser-GitHub-APK-Ready.zip | head -100
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: ZIP file repository mein nahi mili"
+            ls -la
             exit 1
           fi
-          PROJECT_DIR=$(dirname "$WRAPPER")
-          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-          chmod +x "$WRAPPER"
-          echo "Gradle project: $PROJECT_DIR"
 
-      - name: Build Debug APK
-        working-directory: .
+          mkdir -p extracted
+          unzip -o "$ZIP_FILE" -d extracted
+
+      - name: Find Gradle
+        id: gradle
         run: |
-          cd "${{ steps.locate.outputs.project_dir }}"
+          WRAPPER=$(find extracted -type f -name gradlew -print -quit)
+
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: gradlew nahi mila"
+            find extracted -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+
+          echo "dir=$(dirname "$WRAPPER")" >> "$GITHUB_OUTPUT"
+          chmod +x "$WRAPPER"
+
+      - name: Build APK
+        run: |
+          cd "${{ steps.gradle.outputs.dir }}"
           ./gradlew --no-daemon assembleDebug
 
-      - name: Upload APK
+      - name: Save APK
         uses: actions/upload-artifact@v4
         with:
-          name: nex-browser-debug-apk
+          name: nex-browser-apk
           path: extracted/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
